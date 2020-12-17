@@ -4,6 +4,8 @@ library(tidyr)
 library(intervals)
 library(stringr)
 library(purrr)
+library(tibble)  # for `rownames_to_column` and `column_to_rownames`
+library(rlist)
 ```
 
 ```{r data.loading, echo = FALSE}
@@ -83,5 +85,86 @@ plausible <- ranges %>%
             pmap_lgl(.,  function(field, from1, to1, from2, to2)
                 all.within.bounds(tickets.column, from1, to1, from2, to2))
         }))) %>%
-    select(-c(from1, from2, to1, to2))
+    select(-c(from1, from2, to1, to2)) %>%
+    tibble::column_to_rownames("field")
+
+assume <- function(plausible, x, y) {
+    stopifnot(plausible[x, y])
+    plausible <- rlang::duplicate(plausible)
+    for(x1 in rownames(plausible)) plausible[x1, y] <- x1 == x
+    for(y1 in colnames(plausible)) plausible[x, y1] <- y1 == y
+    plausible
+}
+
+solve <- function(plausible) {
+    solutions <- list()
+    solve.recursive <- function(plausible, settled.rows, settled.cols) {
+        # print("_ plausible:")
+        # print(plausible)
+        # print("_ settled.rows:")
+        # print(settled.rows)
+        # print("_ settled.cols:")
+        # print(settled.cols)
+
+        cols <-
+            plausible %>%
+            summarize(across(everything(), ~ length(which(.)))) %>%
+            pivot_longer(everything(),
+                         names_to = "column",
+                         values_to = "total") %>%
+            arrange(total)
+        rows <-
+            plausible %>%
+            rownames_to_column("row") %>%
+            rowwise() %>%
+            transmute(row = row,
+                      total = rowSums(across(-row))) %>%
+            ungroup() %>%
+            arrange(total)
+
+        if (rows %>% filter(total == 0) %>% nrow) {
+            ## This is not a solution; do nothing
+        } else if (cols %>% filter(total == 0) %>% nrow) {
+            ## Ditto
+        } else if ( (!(rows %>% filter(total != 1) %>% nrow)) &&
+                    (!(cols %>% filter(total != 1) %>% nrow)) ) {
+            ## The matrix is now a permutation, i.e. it is a solution.
+            solution <- plausible %>%
+                rownames_to_column("field") %>%
+                pivot_longer(-field) %>%
+                filter(value == TRUE) %>%
+                transmute(field = field, column = name)
+            solutions <<- list.append(solutions, solution)
+        } else {
+            ## Walk moar
+            best.row <-
+                rows %>%
+                filter(! row %in% settled.rows) %>%
+                slice(1) %>%
+                pull(row)
+
+            if (! identical(character(0), best.row)) {
+                for(col in cols %>%
+                           filter(! column %in% settled.cols) %>%
+                           pull(column)) {
+                    if (plausible[best.row, col]) {
+                        # print(sprintf("* plausible[%s, %s]", best.row, col))
+
+                        solve.recursive(
+                            assume(plausible, best.row, col),
+                            c(settled.rows, best.row),
+                            c(settled.cols, col))
+                    }
+                }
+            }
+        }
+    }
+
+    solve.recursive(plausible, c(), c())
+    solutions
+}
+
+columns <<- solve(plausible)[[1]]
+
+columns
 ```
