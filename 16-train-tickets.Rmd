@@ -4,7 +4,6 @@ library(tidyr)
 library(intervals)
 library(stringr)
 library(purrr)
-library(lubridate)  ## Because I don't know how to make %within% exist otherwise
 ```
 
 ```{r data.loading, echo = FALSE}
@@ -35,6 +34,10 @@ intervals_Z <- function(from_v, to_v) {
 }
 
 allowed.values <- intervals_Z(ranges$from, ranges$to)
+
+if (! exists("%within%")) {
+    `%within%` <- function (a, b) standardGeneric("%within%")
+}
 
 setMethod("%within%", c(a = "numeric", b = "Intervals_full"),
           function(a, b) {  ## Vectorized over a *only*
