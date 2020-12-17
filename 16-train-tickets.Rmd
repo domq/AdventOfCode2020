@@ -72,4 +72,16 @@ good.tickets <-
     tickets %>%
     filter(across(everything(), ~ .x %within% allowed.values))
 
+plausible <- ranges %>%
+    mutate(summarize(
+        good.tickets,
+        across(everything(), function(tickets.column) {
+            all.within.bounds <- function(numbers_v, from1, to1, from2, to2) {
+                all((numbers_v >= from1 & numbers_v <= to1) |
+                    (numbers_v >= from2 & numbers_v <= to2))
+            }
+            pmap_lgl(.,  function(field, from1, to1, from2, to2)
+                all.within.bounds(tickets.column, from1, to1, from2, to2))
+        }))) %>%
+    select(-c(from1, from2, to1, to2))
 ```
