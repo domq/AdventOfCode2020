@@ -178,6 +178,17 @@ your.ticket.decoded <- your.ticket %>%
 
 # Your ticket (decoded)
 
-```{r your.ticket.decoded}
+```{r your.ticket.decoded, echo = FALSE}
 your.ticket.decoded %>% as.data.frame
 ```
+
+```{r your.ticket.departures.product, echo = FALSE}
+
+departure.product <-
+    your.ticket.decoded %>%
+    filter(str_detect(field, "^departure")) %>%
+    pull(value) %>%
+    prod
+```
+
+And the departure product is: `r departure.product %>% as.character`
