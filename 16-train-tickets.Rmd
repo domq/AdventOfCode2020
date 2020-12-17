@@ -65,3 +65,11 @@ bogons <-
 
 The “ticket scanning error rate” (which is actually not an error rate
 at all), is `r bogons$value %>% sum`
+
+```{r guess.mapping, echo = FALSE}
+
+good.tickets <-
+    tickets %>%
+    filter(across(everything(), ~ .x %within% allowed.values))
+
+```
