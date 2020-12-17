@@ -20,6 +20,10 @@ ranges <-
 tickets <- pipe("perl < 16-input -ne 'BEGIN { $_ = <> until m/nearby tickets/; } print'") %>%
     read.csv(header = FALSE) %>%
     tibble
+
+your.ticket <- pipe("perl < 16-input -e 'do { $_ = <> } until m/your ticket:/; print(scalar <>)'") %>%
+    read.csv(header = FALSE)
+
 ```
 
 # First question
@@ -164,7 +168,16 @@ solve <- function(plausible) {
     solutions
 }
 
-columns <<- solve(plausible)[[1]]
+column.mapping <<- solve(plausible)[[1]]
 
-columns
+your.ticket.decoded <- your.ticket %>%
+    pivot_longer(everything(), names_to = "column") %>%
+    left_join(column.mapping, by = "column") %>%
+    select(-column)
+```
+
+# Your ticket (decoded)
+
+```{r your.ticket.decoded}
+your.ticket.decoded %>% as.data.frame
 ```
