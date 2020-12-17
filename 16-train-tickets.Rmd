@@ -1,0 +1,63 @@
+```{r libraries, echo = FALSE, message = FALSE}
+library(dplyr)
+library(tidyr)
+library(intervals)
+library(stringr)
+library(purrr)
+library(lubridate)  ## Because I don't know how to make %within% exist otherwise
+```
+
+```{r data.loading, echo = FALSE}
+ranges <-
+    pipe("perl < 16-input -ne '
+     BEGIN { print join(q(,), qw(field from1 to1 from2 to2)), qq(\\n) };
+     exit unless my @fields = m/(.*?): (\\d+)-(\\d+) or (\\d+)-(\\d+)/;
+     print join(q(,), @fields), qq(\\n)'") %>%
+    read.csv(header = TRUE) %>%
+    pivot_longer(-c(field),
+                 names_pattern = '^(from|to)',
+                 names_to = c(".value"))
+
+tickets <- pipe("perl < 16-input -ne 'BEGIN { $_ = <> until m/nearby tickets/; } print'") %>%
+    read.csv(header = FALSE) %>%
+    tibble
+```
+
+# First question
+
+Estimate rate of false tickets (those that have at
+least one completely aberrant number)
+
+```{r q1, echo = FALSE, message = FALSE}
+intervals_Z <- function(from_v, to_v) {
+    Intervals_full(c(from_v, to_v), type = "Z") %>%
+        intervals::reduce()
+}
+
+allowed.values <- intervals_Z(ranges$from, ranges$to)
+
+setMethod("%within%", c(a = "numeric", b = "Intervals_full"),
+          function(a, b) {  ## Vectorized over a *only*
+
+              ## https://stackoverflow.com/a/7660073/435004
+              inwhich <- function(indices, .length)
+                  is.element(seq_len(.length), indices)
+
+              Intervals_full(c(a, a), type = "Z") %>%
+                  interval_included(from = b) %>%
+                  c %>% inwhich(length(a))
+          })
+
+stopifnot(identical(
+    c(TRUE, TRUE, FALSE),
+    c(1, 0, 3) %within% intervals_Z(0, 2)))
+
+## As seen in https://dplyr.tidyverse.org/articles/colwise.html:
+rowAny <- function(x) rowSums(x) > 0
+
+bad.tickets <-
+    tickets %>%
+    filter(rowAny(across(everything(), ~ ! (.x %within% allowed.values))))
+```
+
+The error rate is `r count(bad.tickets) / count(tickets)`
