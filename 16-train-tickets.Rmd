@@ -13,9 +13,7 @@ ranges <-
      exit unless my @fields = m/(.*?): (\\d+)-(\\d+) or (\\d+)-(\\d+)/;
      print join(q(,), @fields), qq(\\n)'") %>%
     read.csv(header = TRUE) %>%
-    pivot_longer(-c(field),
-                 names_pattern = '^(from|to)',
-                 names_to = c(".value"))
+    tibble
 
 tickets <- pipe("perl < 16-input -ne 'BEGIN { $_ = <> until m/nearby tickets/; } print'") %>%
     read.csv(header = FALSE) %>%
@@ -33,7 +31,9 @@ intervals_Z <- function(from_v, to_v) {
         intervals::reduce()
 }
 
-allowed.values <- intervals_Z(ranges$from, ranges$to)
+allowed.values <- interval_union(c(
+    intervals_Z(ranges$from1, ranges$to1),
+    intervals_Z(ranges$from2, ranges$to2)))
 
 if (! exists("%within%")) {
     `%within%` <- function (a, b) standardGeneric("%within%")
