@@ -52,12 +52,13 @@ stopifnot(identical(
     c(TRUE, TRUE, FALSE),
     c(1, 0, 3) %within% intervals_Z(0, 2)))
 
-## As seen in https://dplyr.tidyverse.org/articles/colwise.html:
-rowAny <- function(x) rowSums(x) > 0
-
-bad.tickets <-
+bogons <-
     tickets %>%
-    filter(rowAny(across(everything(), ~ ! (.x %within% allowed.values))))
+    mutate(across(everything(),
+                  ~ ifelse(.x %within% allowed.values, NA, .x))) %>%
+    pivot_longer(everything()) %>%
+    filter(! is.na(value))
 ```
 
-The error rate is `r count(bad.tickets) / count(tickets)`
+The “ticket scanning error rate” (which is actually not an error rate
+at all), is `r bogons$value %>% sum`
